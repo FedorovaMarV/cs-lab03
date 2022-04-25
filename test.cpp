@@ -2,6 +2,7 @@
 
 #include <cassert>
 
+
 void
 test_positive() {
     double min = 0;
@@ -50,6 +51,23 @@ test_empty ()
     find_minmax({},min,max);
 }
 
+void test1()
+{
+    vector <size_t> z = {20, 28, 52};
+    vector <size_t> y = procent (25, {5,7,13});
+    assert(z == y);
+    return;
+}
+
+void test2()
+{
+    vector <size_t> z = {100};
+    vector <size_t> y = procent (1, {1});
+    assert(z == y);
+    return;
+}
+
+
 int
 main() {
     test_positive();
@@ -57,4 +75,6 @@ main() {
     test_similar ();
     test_single ();
     test_empty ();
+    test1();
+    test2();
 }
