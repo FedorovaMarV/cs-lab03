@@ -3,6 +3,13 @@
 #include "histogram.h"
 #include "svg.h"
 
+using namespace std;
+
+struct Input {
+    vector<double> numbers;
+    size_t bin_count;
+};
+
 vector<double>
 input_numbers(istream& in, size_t count)
 {
@@ -14,8 +21,30 @@ input_numbers(istream& in, size_t count)
     return result;
 }
 
-vector<size_t> make_histogramm(const vector<double>& numbers, size_t bin_count)
+Input read_input(istream& in)
 {
+    Input data;
+
+    size_t number_count;
+
+    cerr << "Enter number count: ";
+    in >> number_count;
+
+    cerr << "Enter numbers: ";
+    data.numbers = input_numbers(in, number_count);
+
+    cerr << "Enter bin count: ";
+    size_t bin_count;
+    in >> bin_count;
+
+    return data;
+}
+
+vector<size_t> make_histogramm(Input data)
+{
+    const vector<double>& numbers = data.numbers;
+    size_t& bin_count = data.bin_count;
+
     double min, max;
     find_minmax(numbers, min, max);
 
@@ -88,26 +117,11 @@ void show_histogramm_text(const vector<size_t>& bins)
 int main()
 {
 //Ввод данных
-    size_t number_count;
-    cerr << "Enter number count: ";
-    cin >> number_count;
-    if(number_count == 0)
-    {
-        cerr << "There is nothing to compute\n";
-        return 0;
-    }
-
-
-    cerr << "Enter numbers: ";
-    const auto numbers = input_numbers(cin, number_count);
-
-    size_t bin_count;
-    cerr << "Enter bin count: ";
-    cin >> bin_count;
-
+  Input data;
+  data = read_input(cin);
 
 //Расчет гистограммы
-    const auto bins = make_histogramm(numbers, bin_count);
+    const auto bins = make_histogramm(data);
 
 //Вывод гистограммы
     show_histogramm_svg(bins);
