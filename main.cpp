@@ -2,6 +2,7 @@
 #include <vector>
 #include "histogram.h"
 #include "svg.h"
+#include <windows.h>
 
 vector<double> input_numbers(size_t count)
 {
@@ -110,6 +111,11 @@ int main()
 
 //Вывод гистограммы
     show_histogramm_svg(bins);
+
+    DWORD info = GetVersion();
+    DWORD mask = 0b00000000'00000000'11111111'11111111;
+    DWORD version = info & mask;
+    printf("Windows version is %08x\n", version);
 
     return 0;
 }
