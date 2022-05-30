@@ -1,137 +1,122 @@
 #include <iostream>
 #include <vector>
+#include <curl/curl.h>
+#include <sstream>
+#include <string>
+#include <windows.h>
+
 #include "histogram.h"
 #include "svg.h"
-#include <windows.h>
 
 using namespace std;
 
-vector<double> input_numbers(size_t count)
+vector<double>
+input_numbers(istream& in, size_t count)
 {
     vector<double> result(count);
-    for(size_t i = 0; i < count; i++)
+    for (size_t i = 0; i < count; i++)
     {
-        cin >> result[i];
+        in >> result[i];
     }
     return result;
 }
 
-vector<size_t> make_histogramm(const vector<double>& numbers, size_t bin_count)
+Input
+read_input(istream& in, bool promt)
 {
-    double min, max;
-    find_minmax(numbers, min, max);
+    Input data;
 
-    vector<size_t> bins(bin_count, 0);
-    double bin_size = (max - min) / bin_count;
-    for (size_t i = 0; i < numbers.size(); i++)
-    {
-        bool found = false;
-        for(size_t j = 0; j < (bin_count - 1) && !found; j++)
-        {
-            auto lo = min + j * bin_size;
-            auto hi = min + (j + 1) * bin_size;
-            if (lo <= numbers[i] && numbers[i] < hi)
-            {
-                bins[j]++;
-                found = true;
-            }
-        }
-        if (!found)
-        {
-            bins[bin_count - 1]++;
-        }
-    }
-    return bins;
-}
+    if(promt)
+        cerr << "Enter number count: ";
 
-void show_histogramm_text(const vector<size_t>& bins)
-{
-    size_t SCREEN_WIDTH = 80;
-    const size_t max_asterix = SCREEN_WIDTH - 3 - 1;
-
-    size_t max_bin = bins[0];
-    for (size_t bin: bins)
-    {
-        if (max_bin < bin)
-        {
-            max_bin = bin;
-        }
-    }
-
-    for(size_t bin: bins)
-    {
-        size_t height = bin;
-
-//Проверка, нужно ли масштабировать столбцы
-        if (max_bin > max_asterix)
-        {
-            height = max_asterix * (static_cast<double>(bin) / max_bin);
-        }
-
-        if (bin < 100)
-        {
-            cout << ' ';
-        }
-        if (bin < 10)
-        {
-            cout << ' ';
-        }
-        cout << bin << "|";
-        for (size_t i = 0; i < height; i++)
-        {
-            cout << "*";
-        }
-        cout << endl;
-    }
-}
-
-
-
-int main()
-{
-//Ввод данных
     size_t number_count;
-    cerr << "Enter number count: ";
-    cin >> number_count;
-    if(number_count == 0)
+    in >> number_count;
+
+    if(promt)
+        cerr << "Enter numbers: ";
+
+    data.numbers = input_numbers(in, number_count);
+
+    if(promt)
+        cerr << "Enter column count: ";
+
+
+    in >> data.bin_count;
+
+    return data;
+}
+
+size_t
+write_data(void* items, size_t item_size, size_t item_count, void* ctx)
+{
+
+    size_t data_size = item_size * item_count;
+
+    stringstream* buffer = reinterpret_cast<stringstream*>(ctx);
+    buffer->write(reinterpret_cast<const char*>(items), data_size);
+
+    return data_size;
+}
+
+int progress_callback(void *clientp,   double dltotal,   double dlnow,   double ultotal,   double ulnow)
+{
+    double result;
+    result=100*dlnow/dltotal;
+    if (dltotal=0)
     {
-        cerr << "There is nothing to compute\n";
-        return 0;
+        cerr << "0%" << endl;
+    }
+    cerr << "progress: " << result << "%" << endl;
+    return CURL_PROGRESSFUNC_CONTINUE;
+}
+
+Input
+download(const string& address)
+{
+
+    stringstream buffer;
+    curl_global_init(CURL_GLOBAL_ALL);
+    CURL *curl = curl_easy_init();
+    if(curl)
+    {
+        CURLcode res;
+        curl_easy_setopt(curl, CURLOPT_URL, address.c_str());
+        curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, write_data);
+        curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buffer);
+        curl_easy_setopt(curl, CURLOPT_PROGRESSFUNCTION, progress_callback);
+        curl_easy_setopt(curl, CURLOPT_NOPROGRESS, 0);
+        res = curl_easy_perform(curl);
+        curl_easy_cleanup(curl);
+
+        if(res)
+        {
+            cout <<  curl_easy_strerror(res);
+            exit(1);
+        }
+
+
     }
 
-
-    cerr << "Enter numbers: ";
-    const auto numbers = input_numbers(number_count);
-
-    size_t bin_count;
-    cerr << "Enter bin count: ";
-    cin >> bin_count;
+    return read_input(buffer, false);
+}
 
 
-//Расчет гистограммы
-    const auto bins = make_histogramm(numbers, bin_count);
-
-//Вывод гистограммы
-    show_histogramm_svg(bins);
-
-    DWORD info = GetVersion();
-    DWORD mask = 0x0000ffff;
-    DWORD version = info & mask;
-    DWORD platform = info >> 16;
-    DWORD mask_2 = 0x0000ff;
-    if ((info & 0x80000000) == 0)
+int main(int argc, char* argv[])
+{
+    Input input;
+    cerr << argc;
+    if (argc > 1)
     {
-        DWORD version_major = version & mask_2;
-        DWORD version_minor = version >> 8;
-        DWORD build = platform;
-        printf("Windows v%u.%u (build %u) \n", version_major, version_minor, build);
+        input = download(argv[1]);
     }
-    char computer_name[MAX_COMPUTERNAME_LENGTH + 1];
-    DWORD size = MAX_COMPUTERNAME_LENGTH+1;
-    GetComputerNameA(computer_name, &size);
-    printf("Computer name: %s\n", computer_name);
-    return 0;
 
+    else
+    {
+        input = read_input(cin, true);
+    }
+    const auto bins = make_histogram(input);
+    show_histogram_svg(bins);
 
     return 0;
 }
+
